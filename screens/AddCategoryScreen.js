@@ -1,57 +1,71 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Image, ToastAndroid } from 'react-native';
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Image, ToastAndroid, Modal, FlatList } from 'react-native';
 import { db } from '../firebaseConfig';
-import { addDoc, collection, getDocs, where, query} from "firebase/firestore";
+import { addDoc, collection, getDocs, where, query, doc, getDoc } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { Formik } from 'formik';
-import { Picker } from '@react-native-picker/picker';
 import { TextInput } from "react-native-gesture-handler";
-import MyButton from '../components/MyButton';
+import MyButton from '../components/MyButton';  // Ensure correct path
 import * as ImagePicker from 'expo-image-picker';
-import { getAuth } from "firebase/auth"; 
+import { getAuth } from "firebase/auth";
 
 const AddCategoryScreen = ({ route, navigation }) => {
     const { parent } = route.params || {}; 
     const [image, setImage] = useState(null);
     const [categories, setCategories] = useState([]);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState(parent || 'Main Category');
+    const [loading, setLoading] = useState(false); // Add loading state
     const storage = getStorage();
-    const auth = getAuth(); // Get the auth object
+    const auth = getAuth();
 
     useEffect(() => {
         getCategories();
-    }, [])
+    }, []);
 
     const getCategories = async () => {
         try {
-          const user = auth.currentUser;
-          if (user) {
-            console.log("Fetching categories for user:", user.uid);
-      
-            // Query categories where 'user_id' matches the current user's UID
-            const categoriesQuery = query(
-              collection(db, 'Categories'),
-              where('user_id', '==', user.uid) // Filter by the current user's UID
-            );
-      
-            const querySnapshot = await getDocs(categoriesQuery);
-            const categoriesList = [];
-      
-            querySnapshot.forEach((doc) => {
-              console.log("Category fetched: ", doc.data());
-              categoriesList.push(doc.data());
-            });
-      
-            setCategories(categoriesList);
-            console.log("Categories list for the user: ", categoriesList);
-          } else {
-            console.error("No user logged in");
-          }
+            const user = auth.currentUser;
+            if (user) {
+                const categoriesQuery = query(
+                    collection(db, 'Categories'),
+                    where('user_id', '==', user.uid)
+                );
+                const querySnapshot = await getDocs(categoriesQuery);
+                const categoriesList = [];
+                querySnapshot.forEach((doc) => {
+                    categoriesList.push({ id: doc.id, ...doc.data() });
+                });
+                setCategories(categoriesList);
+            } else {
+                console.error("No user logged in");
+            }
         } catch (error) {
-          console.error("Error fetching categories: ", error);
+            console.error("Error fetching categories: ", error);
         }
-      };
-      
-    
+    };
+
+    useEffect(() => {
+        if (parent) {
+            // Fetch the category name using the category ID if necessary
+            const fetchCategoryName = async () => {
+                try {
+                    const user = auth.currentUser;
+                    if (user) {
+                        const categoryDoc = doc(db, 'Categories', parent);
+                        const categorySnapshot = await getDoc(categoryDoc);
+                        if (categorySnapshot.exists()) {
+                            setSelectedCategory(categorySnapshot.data().name);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error fetching category name: ", error);
+                }
+            };
+            fetchCategoryName();
+        }
+    }, [parent]);
+
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
@@ -72,43 +86,61 @@ const AddCategoryScreen = ({ route, navigation }) => {
             return;
         }
 
-        const user = auth.currentUser; // Get the currently logged-in user
+        const user = auth.currentUser;
         if (!user) {
             console.error("No user logged in");
             return;
         }
-    
+
+        setLoading(true); // Set loading to true when submission starts
+
         try {
-            console.log('Fetching image from URI:', image);
             const resp = await fetch(image);
             const blob = await resp.blob();
-            
-            console.log('Uploading image to Firebase Storage...');
             const storageRef = ref(storage, 'catImages/' + Date.now() + '.jpg');
             await uploadBytes(storageRef, blob);
-    
             const downloadUrl = await getDownloadURL(storageRef);
             value.image = downloadUrl;
-
             value.user_id = user.uid;
-    
-            console.log('Adding document to Firestore...');
+
+            if (value.parent === "Main Category") {
+                value.parent = "0";
+            }
+
             const docRef = await addDoc(collection(db, 'Categories'), value);
             if (docRef.id) {
-                console.log('Category added with ID: ', docRef.id);
                 ToastAndroid.show('Category added successfully', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
             }
         } catch (error) {
             console.error("Error adding category: ", error);
             ToastAndroid.show('Error adding category: ' + error.message, ToastAndroid.LONG, ToastAndroid.BOTTOM);
+        } finally {
+            setLoading(false); // Set loading to false when submission completes
         }
     };
-    
+
+    const renderCategoryItem = ({ item }) => (
+        <TouchableOpacity
+            style={styles.categoryItem}
+            onPress={() => {
+                setSelectedCategory(item.name);
+                setIsModalVisible(false);
+            }}
+        >
+            <Text style={styles.categoryText}>{item.name}</Text>
+        </TouchableOpacity>
+    );
+
     return (
         <View style={styles.container}>
             <Formik
-                initialValues={{ name: '', parent: parent || '', image: '' }}
-                onSubmit={value => onSubmitMethod(value)}
+                initialValues={{ name: '', parent: selectedCategory, image: '' }}
+                onSubmit={value => {
+                    if (value.parent === "Main Category") {
+                        value.parent = "0";
+                    }
+                    onSubmitMethod(value);
+                }}
                 validate={(values) => {
                     const errors = {};
                     if (!values.name) {
@@ -120,7 +152,6 @@ const AddCategoryScreen = ({ route, navigation }) => {
             >
                 {({ handleChange, handleBlur, handleSubmit, values, setFieldValue, errors }) => (
                     <View>
-
                         <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
                             {image ? (
                                 <Image source={{ uri: image }} style={styles.image} />
@@ -138,17 +169,41 @@ const AddCategoryScreen = ({ route, navigation }) => {
 
                         <Text style={styles.label}>Choose parent category</Text>
 
-                        <Picker
-                            selectedValue={values?.parent}
+                        <TouchableOpacity
                             style={styles.input}
-                            onValueChange={itemValue => setFieldValue('parent', itemValue)}
+                            onPress={() => setIsModalVisible(true)}
                         >
-                            {categories.length > 0 && categories?.map((item, index) => (
-                                <Picker.Item key={index} label={item?.name} value={item?.name} />
-                            ))}
-                        </Picker>
+                            <Text>{selectedCategory}</Text>
+                        </TouchableOpacity>
 
-                        <MyButton title='Add category' onPress={handleSubmit} style={styles.button} />
+                        {/* MyButton with loading indicator */}
+                        <MyButton
+                            title="Add category"
+                            onPress={handleSubmit}
+                            isLoading={loading} // Pass the loading state to the button
+                        />
+
+                        {/* Modal for category selection */}
+                        <Modal
+                            animationType="slide"
+                            transparent={true}
+                            visible={isModalVisible}
+                            onRequestClose={() => setIsModalVisible(false)}
+                        >
+                            <View style={styles.modalContainer}>
+                                <View style={styles.modalContent}>
+                                    <FlatList
+                                        data={[{ id: '0', name: 'Main Category' }, ...categories]}
+                                        renderItem={renderCategoryItem}
+                                        keyExtractor={(item) => item.id}
+                                    />
+                                    <MyButton
+                                        title='Close'
+                                        onPress={() => setIsModalVisible(false)}
+                                    />
+                                </View>
+                            </View>
+                        </Modal>
                     </View>
                 )}
             </Formik>
@@ -163,7 +218,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         flex: 1,
         justifyContent: 'center',
-        backgroundColor: "white"
+        backgroundColor: "white",
     },
     input: {
         width: '100%',
@@ -174,25 +229,13 @@ const styles = StyleSheet.create({
         padding: 15,
         paddingHorizontal: 20,
         fontSize: 16,
-        //color: '#6A30DA',
         marginBottom: 20,
-        marginTop: 20
-      },
+        marginTop: 20,
+    },
     label: {
         marginTop: 20,
         fontSize: 16,
         color: 'black',
-    },
-    button: {
-        padding: 15,
-        backgroundColor: '#474F7A',
-        borderRadius: 25,
-        marginTop: 30,
-    },
-    add: {
-        textAlign: "center",
-        color: 'white',
-        fontSize: 16,
     },
     image: {
         borderRadius: 20,
@@ -203,6 +246,36 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
+    },
+    modalContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalContent: {
+        width: '80%',
+        backgroundColor: '#FFF',
+        borderRadius: 10,
+        padding: 20,
+        alignItems: 'center',
+    },
+    categoryItem: {
+        padding: 10,
+        borderBottomWidth: 1,
+        borderColor: '#EEE',
+        width: '100%',
+        alignItems: 'center',
+    },
+    closeButton: {
+        marginTop: 20,
+        padding: 10,
+        backgroundColor: '#474F7A',
+        borderRadius: 5,
+    },
+    closeButtonText: {
+        color: '#FFF',
+        fontSize: 16,
     },
 });
 

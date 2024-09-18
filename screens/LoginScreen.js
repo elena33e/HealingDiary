@@ -19,7 +19,7 @@ const LoginScreen = ({ navigation }) => {
       })
       .catch(err => {
         console.log(err);
-        Alert.alert(err.nativeErrorMessage);
+        Alert.alert("Error logging in: " + err.nativeErrorMessage);
       });
   };
 

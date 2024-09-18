@@ -20,7 +20,6 @@ const CategoriesScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser; // Get the current logged-in user
       if (user) {
-        console.log("Starting to fetch categories...");
 
         // Create a query to fetch categories where parent = 0 and user_id matches the current user
         const categoriesQuery = query(
@@ -66,6 +65,13 @@ const CategoriesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {categories.length === 0 && (
+          <View style={styles.emptyMessageContainer}>
+            <Text style={styles.emptyMessage}>It seems like there is nothing here yet...
+                                              Start adding categories! 
+            </Text>
+          </View>
+        )}
       <FlatList
         data={categories}
         renderItem={({ item }) => (
@@ -127,7 +133,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 20,
     right: 20,
-  }
+  },
+  emptyMessageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    textAlign: 'center',
+    margin: 15
+  },
+  emptyMessage: {
+    fontSize: 16,
+    color: '#999',
+  },
 });
 
 export default CategoriesScreen;

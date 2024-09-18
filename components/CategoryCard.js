@@ -47,7 +47,7 @@ const CategoryCard = ({ category, image, itemKey, onPress, onDelete }) => {
                 <Text style={styles.label}>{category}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteButton} onPress={confirmDelete}>
-                <Icon name="delete" size={24} color="red" />
+                <Icon name="delete" size={20} color="#999" />
             </TouchableOpacity>
         </View>
     );

@@ -1,50 +1,88 @@
-
 import React, { useEffect, useState } from "react";
-import { 
-    View, Text, StyleSheet, TouchableOpacity, ToastAndroid, 
-    TextInput, KeyboardAvoidingView, Platform, ScrollView, 
-    FlatList, Modal 
+import {
+    View, Text, StyleSheet, TouchableOpacity, ToastAndroid,
+    TextInput, KeyboardAvoidingView, Platform, ScrollView,
+    FlatList, Modal
 } from 'react-native';
 import { db } from '../firebaseConfig';
-import { addDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { Formik } from 'formik';
+import MyButton from "../components/MyButton";
 
-const AddNoteScreen = () => {
+const AddNoteScreen = ({ route, navigation }) => {
+    const { category } = route.params || {};
     const [categories, setCategories] = useState([]);
-    const [categoryValue, setCategoryValue] = useState(null);
+    const [categoryValue, setCategoryValue] = useState(category ? category.name : ""); // Use category.name
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [formSubmitted, setFormSubmitted] = useState(false); // Track if form has been submitted
     const auth = getAuth();
 
     useEffect(() => {
-        const fetchCategories = async () => {
-            try {
-                const user = auth.currentUser;
-                if (user) {
-                    const categoriesQuery = query(
-                        collection(db, 'Categories'),
-                        where('user_id', '==', user.uid)
-                    );
-                    const querySnapshot = await getDocs(categoriesQuery);
-                    const categoriesList = [];
-                    querySnapshot.forEach((doc) => {
-                        categoriesList.push({ id: doc.id, name: doc.data().name });
-                    });
-                    setCategories(categoriesList);
-                }
-            } catch (error) {
-                console.error("Error fetching categories:", error);
-            }
-        };
-
-        fetchCategories();
+        getCategories();
     }, []);
 
-    const onSubmitMethod = async (values, { resetForm }) => {
+    useEffect(() => {
+        if (category) {
+            // Fetch the category name using the category ID if necessary
+            const fetchCategoryName = async () => {
+                try {
+                    const user = auth.currentUser;
+                    if (user) {
+                        const categoryDoc = doc(db, 'Categories', category);
+                        const categorySnapshot = await getDoc(categoryDoc);
+                        if (categorySnapshot.exists()) {
+                            setCategoryValue(categorySnapshot.data().name);
+                        }
+                    }
+                } catch (error) {
+                    console.error("Error fetching category name: ", error);
+                }
+            };
+            fetchCategoryName();
+        }
+    }, [category]);
+
+    const getCategories = async () => {
         try {
             const user = auth.currentUser;
             if (user) {
-                // Add user_id to the note data
+                const categoriesQuery = query(
+                    collection(db, 'Categories'),
+                    where('user_id', '==', user.uid)
+                );
+
+                const querySnapshot = await getDocs(categoriesQuery);
+                const categoriesList = [];
+
+                querySnapshot.forEach((doc) => {
+                    categoriesList.push({ 
+                        id: doc.id, 
+                        name: doc.data().name }); // Get id and data
+                });
+
+                setCategories(categoriesList);
+            }
+        } catch (error) {
+            console.error("Error fetching categories: ", error);
+        }
+    };
+
+    useEffect(() => {
+        if (category && category.name) {
+            // Set the category value to the name if it exists
+            setCategoryValue(category.name);
+        } else {
+            // Set it to default if no category is provided
+            setCategoryValue('Select a Category');
+        }
+    }, [category]);
+
+    const onSubmitMethod = async (values, { resetForm }) => {
+        setFormSubmitted(true);
+        try {
+            const user = auth.currentUser;
+            if (user) {
                 const noteData = {
                     ...values,
                     user_id: user.uid,
@@ -52,14 +90,14 @@ const AddNoteScreen = () => {
                 const docRef = await addDoc(collection(db, 'Notes'), noteData);
                 if (docRef.id) {
                     ToastAndroid.show('Note saved!', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
-                    resetForm(); // Reset form after successful submission
-                    setCategoryValue(null); // Reset category selection
+                    resetForm();
+                    setCategoryValue(category ? category.name : ""); // Reset with category name
+                    setFormSubmitted(false);
                 }
             } else {
                 ToastAndroid.show('User not authenticated', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
             }
         } catch (error) {
-            console.error("Error adding document: ", error);
             ToastAndroid.show('Error saving note', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
         }
     };
@@ -68,9 +106,10 @@ const AddNoteScreen = () => {
         <TouchableOpacity
             style={styles.categoryItem}
             onPress={() => {
-                setCategoryValue(item.name);
+                setCategoryValue(item.name); // Set category name when selected
                 setIsModalVisible(false);
             }}
+            key={item.id || item.name}
         >
             <Text style={styles.categoryText}>{item.name}</Text>
         </TouchableOpacity>
@@ -83,8 +122,8 @@ const AddNoteScreen = () => {
         >
             <ScrollView contentContainerStyle={styles.scrollContainer}>
                 <Formik
-                    initialValues={{ title: '', category: '', text: '' }}
-                    onSubmit={onSubmitMethod}
+                    initialValues={{ title: '', category: categoryValue || '', text: '' }}
+                    onSubmit={(values, actions) => onSubmitMethod(values, actions)}
                     validate={(values) => {
                         const errors = {};
                         if (!values.title) {
@@ -93,7 +132,7 @@ const AddNoteScreen = () => {
                         if (!categoryValue) {
                             errors.category = 'Please select a category';
                         } else {
-                            values.category = categoryValue;
+                            values.category = categoryValue; // Ensure categoryValue is set correctly
                         }
                         if (!values.text) {
                             errors.text = 'Please add some text to the note';
@@ -102,34 +141,43 @@ const AddNoteScreen = () => {
                     }}
                 >
                     {({ handleChange, handleBlur, handleSubmit, values, errors }) => (
-                        <View style={styles.form}>
-                            <TextInput
-                                style={styles.titleInput}
-                                placeholder="Title..."
-                                value={values.title}
-                                onChangeText={handleChange('title')}
-                                onBlur={handleBlur('title')}
-                            />
-                            {errors.title && ToastAndroid.show(errors.title, ToastAndroid.SHORT)}
-                            <Text style={styles.label}>Select Category</Text>
-                            <TouchableOpacity 
-                                style={styles.input} 
-                                onPress={() => setIsModalVisible(true)}
-                            >
-                                <Text style={styles.categoryText}>
-                                    {categoryValue || "Select a Category"}
-                                </Text>
-                            </TouchableOpacity>
-                            <TextInput
-                                multiline
-                                style={[styles.input, styles.textArea]}
-                                placeholder="Your notes here..."
-                                value={values.text}
-                                onChangeText={handleChange('text')}
-                                onBlur={handleBlur('text')}
-                            />
-                            {errors.text && ToastAndroid.show(errors.text, ToastAndroid.SHORT)}
-                            <TouchableOpacity style={styles.button} onPress={() => handleSubmit()}>
+                        <View style={{ flex: 1 }}>
+                            <View style={styles.form}>
+                                <TextInput
+                                    style={styles.titleInput}
+                                    placeholder="Title..."
+                                    value={values.title}
+                                    onChangeText={handleChange('title')}
+                                    onBlur={handleBlur('title')}
+                                />
+                                {formSubmitted && errors.title && (
+                                    <Text style={styles.errorText}>{errors.title}</Text>
+                                )}
+                                <Text style={styles.label}>Select Category</Text>
+                                <TouchableOpacity
+                                    style={styles.categoryInput}
+                                    onPress={() => setIsModalVisible(true)}
+                                >
+                                    <Text style={styles.categoryText}>
+                                        {categoryValue || "Select a Category"}
+                                    </Text>
+                                </TouchableOpacity>
+                                {formSubmitted && errors.category && (
+                                    <Text style={styles.errorText}>{errors.category}</Text>
+                                )}
+                                <TextInput
+                                    multiline
+                                    style={styles.textArea}
+                                    placeholder="Your notes here..."
+                                    value={values.text}
+                                    onChangeText={handleChange('text')}
+                                    onBlur={handleBlur('text')}
+                                />
+                                {formSubmitted && errors.text && (
+                                    <Text style={styles.errorText}>{errors.text}</Text>
+                                )}
+                            </View>
+                            <TouchableOpacity style={styles.button} onPress={handleSubmit}>
                                 <Text style={styles.add}>+</Text>
                             </TouchableOpacity>
                         </View>
@@ -148,12 +196,10 @@ const AddNoteScreen = () => {
                                 renderItem={renderCategoryItem}
                                 keyExtractor={(item) => item.id}
                             />
-                            <TouchableOpacity 
-                                style={styles.closeButton} 
+                            <MyButton
+                                title='Close'
                                 onPress={() => setIsModalVisible(false)}
-                            >
-                                <Text style={styles.closeButtonText}>Close</Text>
-                            </TouchableOpacity>
+                            />
                         </View>
                     </View>
                 </Modal>
@@ -166,44 +212,51 @@ const AddNoteScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'rgba(129, 104, 157, 0.3)',
+        backgroundColor: 'white',
     },
     scrollContainer: {
         flexGrow: 1,
         justifyContent: 'center',
         padding: 20,
+        paddingBottom: 70, // Add space for the button
     },
     form: {
         flex: 1,
     },
     titleInput: {
-        borderBottomWidth: 1,
-        borderColor: '#CCC',
         paddingVertical: 10,
         paddingHorizontal: 15,
         marginBottom: 15,
-        fontSize: 16,
+        fontSize: 20,
+        fontWeight: 'bold',
         backgroundColor: '#FFF',
         borderRadius: 8,
     },
-    input: {
-        borderBottomWidth: 1,
-        borderColor: '#CCC',
-        paddingVertical: 10,
-        paddingHorizontal: 15,
-        marginBottom: 15,
+    categoryInput: {
+        width: '80%',
+        height: 55,
+        borderColor: '#D6BBFC',
+        backgroundColor: '#E8DFFC',
+        borderRadius: 25,
+        padding: 15,
+        paddingHorizontal: 20,
         fontSize: 16,
-        backgroundColor: '#FFF',
-        borderRadius: 8,
+        marginBottom: 20,
+        marginTop: 20,
+        marginLeft: 10
     },
     label: {
         fontSize: 16,
-        marginBottom: 5,
+        paddingLeft: 15,
         color: '#333',
     },
     textArea: {
-        height: 600,
+        height: 400,
         textAlignVertical: 'top',
+        padding: 15,
+        paddingHorizontal: 15,
+        fontSize: 16,
+        marginBottom: 20,
     },
     button: {
         width: 55,
@@ -214,7 +267,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         position: 'absolute',
         bottom: 20,
-        right: 20,
+        right: 20,  // Fix the button to the bottom right of the form
     },
     add: {
         color: '#FFF',
@@ -241,7 +294,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     categoryText: {
-        fontSize: 18,
+        fontSize: 16,
     },
     closeButton: {
         marginTop: 20,
@@ -252,6 +305,10 @@ const styles = StyleSheet.create({
     closeButtonText: {
         color: '#FFF',
         fontSize: 16,
+    },
+    errorText: {
+        color: 'red',
+        marginBottom: 10,
     },
 });
 

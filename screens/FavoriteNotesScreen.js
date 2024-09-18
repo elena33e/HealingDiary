@@ -7,11 +7,10 @@ import { TouchableOpacity } from "react-native-gesture-handler";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getAuth } from "firebase/auth";  // Import Firebase Auth
 
-const NotesScreen = ({ navigation, category }) => {
+const FavoriteNotesScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState([]);
-  const [favoriteNotes, setFavoriteNotes] = useState([]);
-  const auth = getAuth();  // Get the auth object
+  const auth = getAuth();  
 
   useEffect(() => {
     const user = auth.currentUser;  // Get the current logged-in user
@@ -19,34 +18,24 @@ const NotesScreen = ({ navigation, category }) => {
     if (user) {
       const notesRef = collection(db, 'Notes');
       
-      // Build query based on whether category is provided or not
-      let userNotesQuery;
-      if (category) {
-        // If category is provided, filter by category
-        userNotesQuery = query(
+      let favNotesQuery;     
+      favNotesQuery = query(
           notesRef, 
           where('user_id', '==', user.uid),
-          where('category', '==', category)  // Filter by category
+          where('isFavourite', '==', true)  // Filter by favourite status
         );
-      } else {
-        // If no category is provided, fetch all notes for the user
-        userNotesQuery = query(
-          notesRef, 
-          where('user_id', '==', user.uid)
-        );
-      }
 
       // Set up the real-time listener for notes collection
-      const unsubscribe = onSnapshot(userNotesQuery, (querySnapshot) => {
-        const notesList = [];
+      const unsubscribe = onSnapshot(favNotesQuery, (querySnapshot) => {
+        const favNotesList = [];
         querySnapshot.forEach((doc) => {
-          notesList.push({
+          favNotesList.push({
             ...doc.data(),
             key: doc.id,
           });
         });
 
-        setNotes(notesList);
+        setNotes(favNotesList);
         setLoading(false);
       }, (error) => {
         console.error("Error fetching notes: ", error);
@@ -59,7 +48,7 @@ const NotesScreen = ({ navigation, category }) => {
       console.error("No user is logged in");
       setLoading(false);
     }
-  }, [category]); 
+  }); 
 
   const handleNotePress = (itemKey) => {
     const note = notes.find(n => n.key === itemKey);  // Find the note by key
@@ -115,7 +104,7 @@ const NotesScreen = ({ navigation, category }) => {
       <FlatList
         data={notes}
         renderItem={({ item }) => (
-          <NoteCard 
+        <NoteCard 
             title={item.title}   
             text={item.text}
             itemKey={item.key}
@@ -130,15 +119,6 @@ const NotesScreen = ({ navigation, category }) => {
         //columnWrapperStyle={styles.row} // Add some spacing between rows
         contentContainerStyle={styles.scrollViewContent} // Use this for padding/margin
       />
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => navigation.navigate('AddNoteScreen')}
-        >
-          <Icon name="note-add" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -155,27 +135,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 10,
   },
-  button: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    backgroundColor: '#474F7A',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.8,
-    shadowRadius: 2,
-    elevation: 5,  // for Android shadow
-  },
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-  },
+  
   emptyMessageContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -189,4 +149,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default NotesScreen;
+export default FavoriteNotesScreen;
+
