@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     View, Text, StyleSheet, TouchableOpacity, TextInput, 
     Modal, KeyboardAvoidingView, Platform, ScrollView, 
@@ -9,6 +9,9 @@ import { doc, updateDoc, getDocs, collection, query, where, getDoc } from "fireb
 import { getAuth } from "firebase/auth";
 import { Formik } from 'formik';
 import MyButton from "../components/MyButton";
+import { RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
+import { actions } from 'react-native-pell-rich-editor/src/const';
+import ColorPicker from 'react-native-wheel-color-picker';
 
 const EditNoteScreen = ({ route, navigation }) => {
     const { note } = route.params; // Get the note passed from previous screen
@@ -18,6 +21,49 @@ const EditNoteScreen = ({ route, navigation }) => {
     const [formSubmitted, setFormSubmitted] = useState(false); // Track form submission
     const [loading, setLoading] = useState(false); // Loading state
     const auth = getAuth();
+    const richText = useRef();
+    const [showColorPicker, setShowColorPicker] = useState(false);
+
+    const handleColorSelect = (color) => {
+            richText.current?.setForeColor(color);
+            setShowColorPicker(false);
+          };
+
+        const customActions = [
+            actions.setBold,
+            actions.setItalic,
+            actions.setUnderline,
+            actions.setStrikethrough,
+            actions.heading1,
+            actions.heading2,
+            actions.heading3,
+            actions.heading4,
+            actions.alignLeft,
+            actions.alignCenter,
+            actions.alignRight,
+            actions.alignFull,
+            actions.insertBulletsList,
+            actions.insertOrderedList,
+            actions.indent,
+            actions.outdent,
+            actions.insertLink,
+            {
+              iconName: 'format-color-text',
+              title: 'Color',
+              onPress: () => setShowColorPicker(true),
+            },
+            {
+              iconName: 'format-size',
+              title: 'Font Size',
+              onPress: () => {
+                // You can implement a custom font size picker here
+                const fontSize = prompt('Enter font size (px):');
+                if (fontSize) {
+                  richText.current?.setFontSize(parseInt(fontSize));
+                }
+              },
+            },
+          ];
 
     // Fetch Categories
     const getCategories = async () => {
@@ -58,7 +104,12 @@ const EditNoteScreen = ({ route, navigation }) => {
               }
               
               const noteRef = doc(db, 'Notes', note.id); // Use note id
-              await updateDoc(noteRef, { ...values, category: categoryValue, user_id: user.uid });
+              await updateDoc(noteRef, {
+                                  ...values,
+                                  category: categoryValue,
+                                  user_id: user.uid,
+                                  text: values.formattedText // Save formatted text in the 'text' field
+                              });
               setLoading(false); // Stop loading
               navigation.goBack(); // Navigate back
           }
@@ -91,74 +142,89 @@ const EditNoteScreen = ({ route, navigation }) => {
                     <ActivityIndicator size="large" color="#FFFFFF" />
                 </View>
             )}
-            <ScrollView contentContainerStyle={styles.scrollContainer}>
+
+
+
                 <Formik
-                    initialValues={{
-                        title: note.title || '',
-                        category: categoryValue || '',
-                        text: note.text || ''
-                    }}
-                    onSubmit={onSubmitMethod}
-                    validate={(values) => {
-                        const errors = {};
-                        if (!values.title) {
-                            errors.title = 'You must give the note a title';
-                        }
-                        if (!categoryValue) {
-                            errors.category = 'Please select a category';
-                        } else {
-                            values.category = categoryValue; // Set category value
-                        }
-                        if (!values.text) {
-                            errors.text = 'Please add some text to the note';
-                        }
-                        return errors;
-                    }}
-                >
-                    {({ handleChange, handleBlur, handleSubmit, values, errors }) => (
-                        <View style={styles.form}>
-                            <TextInput
-                                style={styles.titleInput}
-                                placeholder="Title..."
-                                value={values.title}
-                                onChangeText={handleChange('title')}
-                                onBlur={handleBlur('title')}
-                            />
-                            {formSubmitted && errors.title && (
-                                <Text style={styles.errorText}>{errors.title}</Text>
-                            )}
+                       initialValues={{
+                           title: note.title || '',
+                           category: categoryValue || '',
+                           formattedText: note.text || ''
+                       }}
+                       onSubmit={onSubmitMethod}
+                       validate={(values) => {
+                           const errors = {};
+                           if (!values.title) {
+                               errors.title = 'You must give the note a title';
+                           }
+                           if (!categoryValue) {
+                               errors.category = 'Please select a category';
+                           } else {
+                               values.category = categoryValue;
+                           }
+                           if (!values.formattedText) {
+                               errors.formattedText = 'Please add some text to the note';
+                           }
+                           return errors;
+                       }}
+                   >
+                       {({ handleChange, handleBlur, handleSubmit, values, errors, setFieldValue }) => (
+                           <>
 
-                            <Text style={styles.label}>Select Category</Text>
-                            <TouchableOpacity
-                                style={styles.categoryInput}
-                                onPress={() => setIsModalVisible(true)}
-                            >
-                                <Text style={styles.categoryText}>
-                                    {categoryValue || 'Select a Category'}
-                                </Text>
-                            </TouchableOpacity>
-                            {formSubmitted && errors.category && (
-                                <Text style={styles.errorText}>{errors.category}</Text>
-                            )}
+                           <TouchableOpacity style={styles.fixedButton} onPress={handleSubmit}>
+                                               <Text style={styles.add}>✓</Text>
+                           </TouchableOpacity>
 
-                            <TextInput
-                                multiline
-                                style={styles.textArea}
-                                placeholder="Your notes here..."
-                                value={values.text}
-                                onChangeText={handleChange('text')}
-                                onBlur={handleBlur('text')}
-                            />
-                            {formSubmitted && errors.text && (
-                                <Text style={styles.errorText}>{errors.text}</Text>
-                            )}
+                           <ScrollView contentContainerStyle={styles.scrollContainer}>
+                                  <TextInput
+                                       style={styles.titleInput}
+                                       placeholder="Title..."
+                                       value={values.title}
+                                       onChangeText={handleChange('title')}
+                                       onBlur={handleBlur('title')}
+                                   />
+                                   {formSubmitted && errors.title && (
+                                       <Text style={styles.errorText}>{errors.title}</Text>
+                                   )}
 
-                            <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                                <Text style={styles.add}>✓</Text>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-                </Formik>
+
+
+
+                               {/* Rest of the form */}
+                               <Text style={styles.label}>Select Category</Text>
+                               <TouchableOpacity
+                                   style={styles.categoryInput}
+                                   onPress={() => setIsModalVisible(true)}
+                               >
+                                   <Text style={styles.categoryText}>
+                                       {categoryValue || 'Select a Category'}
+                                   </Text>
+                               </TouchableOpacity>
+                               {formSubmitted && errors.category && (
+                                   <Text style={styles.errorText}>{errors.category}</Text>
+                               )}
+
+                               <RichToolbar
+                                   editor={richText}
+                                   actions={customActions}
+                                   style={styles.richToolbar}
+                               />
+                               <RichEditor
+                                   ref={richText}
+                                   onChange={(text) => setFieldValue('formattedText', text)}
+                                   initialContentHTML={values.formattedText}
+                                   style={styles.richEditor}
+                               />
+                               {formSubmitted && errors.formattedText && (
+                                   <Text style={styles.errorText}>{errors.formattedText}</Text>
+                               )}
+
+                               </ScrollView>
+                              </>
+
+                       )}
+
+                   </Formik>
 
                 {/* Category Modal */}
                 <Modal
@@ -178,7 +244,8 @@ const EditNoteScreen = ({ route, navigation }) => {
                         </View>
                     </View>
                 </Modal>
-            </ScrollView>
+
+
         </KeyboardAvoidingView>
     );
 };
@@ -191,12 +258,12 @@ const styles = StyleSheet.create({
     },
     scrollContainer: {
         flexGrow: 1,
-        justifyContent: 'center',
         padding: 20,
-        paddingBottom: 70,
+        paddingBottom: 100,
     },
     form: {
-        flex: 1,
+        //flex: 1,
+        paddingBottom: 70,
     },
     titleInput: {
         paddingVertical: 10,
@@ -232,17 +299,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginBottom: 20,
     },
-    button: {
-        width: 55,
-        height: 55,
-        backgroundColor: "#474F7A",
-        borderRadius: 50,
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'absolute',
-        bottom: 20,
-        right: 20,
-    },
+     fixedButton: {
+            position: 'absolute',
+            top: 20,                   // Adjust this to fine-tune the vertical position
+            right: 20,                 // Adjust this to fine-tune the horizontal position
+            width: 55,
+            height: 55,
+            backgroundColor: "#474F7A",
+            borderRadius: 50,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000,              // Ensure the button stays on top
+        },
     add: {
         color: '#FFF',
         fontSize: 24,
@@ -267,6 +335,9 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
     },
+    richEditor: {
+            minHeight: 200, // Ensure enough space for the editor
+        },
     categoryText: {
         fontSize: 16,
     },

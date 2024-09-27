@@ -1,72 +1,51 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, ToastAndroid, Modal, FlatList } from 'react-native';
 import { db } from '../firebaseConfig';
-import { addDoc, collection, getDocs, where, query, doc, getDoc } from "firebase/firestore";
+import { addDoc, collection, getDocs, where, query } from "firebase/firestore";
 import { getDownloadURL, getStorage, ref, uploadBytes } from "firebase/storage";
 import { Formik } from 'formik';
 import { TextInput } from "react-native-gesture-handler";
-import MyButton from '../components/MyButton';  // Ensure correct path
+import MyButton from '../components/MyButton';
 import * as ImagePicker from 'expo-image-picker';
 import { getAuth } from "firebase/auth";
+import { saveToLocal, setupNetworkSyncListener } from '../utilities/DataSyncService'; // Import sync methods
+import NetInfo from '@react-native-community/netinfo'; // NetInfo to check online/offline status
 
 const AddCategoryScreen = ({ route, navigation }) => {
-    const { parent } = route.params || {}; 
+    const { parent } = route.params || {};
     const [image, setImage] = useState(null);
     const [categories, setCategories] = useState([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState(parent || 'Main Category');
-    const [loading, setLoading] = useState(false); // Add loading state
+    const [loading, setLoading] = useState(false);
     const storage = getStorage();
     const auth = getAuth();
 
     useEffect(() => {
         getCategories();
+        setupNetworkSyncListener(); // Start syncing when online if there is pending data
     }, []);
 
+    // Fetch categories from Firestore
     const getCategories = async () => {
-        try {
-            const user = auth.currentUser;
-            if (user) {
-                const categoriesQuery = query(
-                    collection(db, 'Categories'),
-                    where('user_id', '==', user.uid)
-                );
-                const querySnapshot = await getDocs(categoriesQuery);
-                const categoriesList = [];
-                querySnapshot.forEach((doc) => {
-                    categoriesList.push({ id: doc.id, ...doc.data() });
-                });
-                setCategories(categoriesList);
-            } else {
-                console.error("No user logged in");
-            }
-        } catch (error) {
-            console.error("Error fetching categories: ", error);
+        const user = auth.currentUser;
+        if (user) {
+            const categoriesQuery = query(
+                collection(db, 'Categories'),
+                where('user_id', '==', user.uid)
+            );
+            const querySnapshot = await getDocs(categoriesQuery);
+            const categoriesList = [];
+            querySnapshot.forEach((doc) => {
+                categoriesList.push({ id: doc.id, ...doc.data() });
+            });
+            setCategories(categoriesList);
+        } else {
+            console.error("No user logged in");
         }
     };
 
-    useEffect(() => {
-        if (parent) {
-            // Fetch the category name using the category ID if necessary
-            const fetchCategoryName = async () => {
-                try {
-                    const user = auth.currentUser;
-                    if (user) {
-                        const categoryDoc = doc(db, 'Categories', parent);
-                        const categorySnapshot = await getDoc(categoryDoc);
-                        if (categorySnapshot.exists()) {
-                            setSelectedCategory(categorySnapshot.data().name);
-                        }
-                    }
-                } catch (error) {
-                    console.error("Error fetching category name: ", error);
-                }
-            };
-            fetchCategoryName();
-        }
-    }, [parent]);
-
-
+    // Image picker function
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -80,6 +59,7 @@ const AddCategoryScreen = ({ route, navigation }) => {
         }
     };
 
+    // Submit form
     const onSubmitMethod = async (value) => {
         if (!image) {
             ToastAndroid.show('Please select an image', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
@@ -92,9 +72,10 @@ const AddCategoryScreen = ({ route, navigation }) => {
             return;
         }
 
-        setLoading(true); // Set loading to true when submission starts
+        setLoading(true);
 
         try {
+            // Upload image to Firebase storage
             const resp = await fetch(image);
             const blob = await resp.blob();
             const storageRef = ref(storage, 'catImages/' + Date.now() + '.jpg');
@@ -107,18 +88,31 @@ const AddCategoryScreen = ({ route, navigation }) => {
                 value.parent = "0";
             }
 
-            const docRef = await addDoc(collection(db, 'Categories'), value);
-            if (docRef.id) {
-                ToastAndroid.show('Category added successfully', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
+            // Check if user is online or offline
+            const netInfo = await NetInfo.fetch();
+
+            if (netInfo.isConnected) {
+                // If online, save directly to Firestore
+                const docRef = await addDoc(collection(db, 'Categories'), value);
+                if (docRef.id) {
+                    ToastAndroid.show('Category added successfully', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
+                }
+            } else {
+                // If offline, save to local storage for later sync
+                await saveToLocal({ type: 'category', data: value });
+                ToastAndroid.show('You are offline. Data will be synced later.', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
             }
         } catch (error) {
             console.error("Error adding category: ", error);
             ToastAndroid.show('Error adding category: ' + error.message, ToastAndroid.LONG, ToastAndroid.BOTTOM);
+            // Save to local storage if there's an error
+            await saveToLocal({ type: 'category', data: value });
         } finally {
-            setLoading(false); // Set loading to false when submission completes
+            setLoading(false);
         }
     };
 
+    // Render category item in modal
     const renderCategoryItem = ({ item }) => (
         <TouchableOpacity
             style={styles.categoryItem}
@@ -135,22 +129,16 @@ const AddCategoryScreen = ({ route, navigation }) => {
         <View style={styles.container}>
             <Formik
                 initialValues={{ name: '', parent: selectedCategory, image: '' }}
-                onSubmit={value => {
-                    if (value.parent === "Main Category") {
-                        value.parent = "0";
-                    }
-                    onSubmitMethod(value);
-                }}
+                onSubmit={onSubmitMethod}
                 validate={(values) => {
                     const errors = {};
                     if (!values.name) {
-                        ToastAndroid.show('You must give the category a name', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
                         errors.name = 'You must give the category a name';
                     }
                     return errors;
                 }}
             >
-                {({ handleChange, handleBlur, handleSubmit, values, setFieldValue, errors }) => (
+                {({ handleChange, handleBlur, handleSubmit, values, errors }) => (
                     <View>
                         <TouchableOpacity onPress={pickImage} style={styles.imageContainer}>
                             {image ? (
@@ -163,9 +151,11 @@ const AddCategoryScreen = ({ route, navigation }) => {
                         <TextInput
                             style={styles.input}
                             placeholder="Category title"
-                            value={values?.name}
+                            value={values.name}
                             onChangeText={handleChange('name')}
+                            onBlur={handleBlur('name')}
                         />
+                        {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
                         <Text style={styles.label}>Choose parent category</Text>
 
@@ -176,14 +166,12 @@ const AddCategoryScreen = ({ route, navigation }) => {
                             <Text>{selectedCategory}</Text>
                         </TouchableOpacity>
 
-                        {/* MyButton with loading indicator */}
                         <MyButton
                             title="Add category"
                             onPress={handleSubmit}
-                            isLoading={loading} // Pass the loading state to the button
+                            isLoading={loading}
                         />
 
-                        {/* Modal for category selection */}
                         <Modal
                             animationType="slide"
                             transparent={true}
@@ -211,6 +199,7 @@ const AddCategoryScreen = ({ route, navigation }) => {
     );
 };
 
+// Styles for the screen
 const styles = StyleSheet.create({
     container: {
         width: "100%",
@@ -267,15 +256,9 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
     },
-    closeButton: {
-        marginTop: 20,
-        padding: 10,
-        backgroundColor: '#474F7A',
-        borderRadius: 5,
-    },
-    closeButtonText: {
-        color: '#FFF',
-        fontSize: 16,
+    errorText: {
+        color: 'red',
+        marginBottom: 10,
     },
 });
 

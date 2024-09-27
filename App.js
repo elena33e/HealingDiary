@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import * as React from 'react';
+import React, { useEffect } from "react";
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -17,6 +17,8 @@ import NoteDetailsScreen from './screens/NoteDetailsScreen';
 import EditNoteScreen from './screens/EditNoteScreen';
 import { getAuth, onAuthStateChanged } from '@firebase/auth';
 import { app } from './firebaseConfig';
+import NetInfo from "@react-native-community/netinfo";
+import { ToastAndroid } from 'react-native'; 
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -113,6 +115,23 @@ function MainApp() {
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const auth = getAuth(app);
+
+  useEffect(() => {
+    // Subscribe to network state updates
+    const unsubscribe = NetInfo.addEventListener(state => {
+      console.log("Connection type", state.type);
+      console.log("Is connected?", state.isConnected);
+      
+      if (state.isConnected) {
+        ToastAndroid.show('You are online', ToastAndroid.SHORT); // Or handle online state
+      } else {
+        ToastAndroid.show('You are offline', ToastAndroid.SHORT); // Or handle offline state
+      }
+    });
+
+    // Cleanup the listener on unmount
+    return () => unsubscribe();
+  }, []);
 
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {

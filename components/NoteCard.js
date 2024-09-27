@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { RichEditor } from 'react-native-pell-rich-editor';
 
 const NoteCard = ({ title, text, itemKey, onPress, onDelete, onFavorite, isFavorite }) => {
     const deleteItem = () => {
@@ -20,6 +21,11 @@ const NoteCard = ({ title, text, itemKey, onPress, onDelete, onFavorite, isFavor
         );
     };
 
+   const getScaledContent = () => {
+           // Wrap the content with a div and set the font size
+           return `<div style="font-size: 16px;">${text}</div>`;
+       };
+
     return (
         <TouchableOpacity onPress={() => onPress(itemKey)} style={styles.cardContainer}>
             <View style={styles.card}>
@@ -36,13 +42,15 @@ const NoteCard = ({ title, text, itemKey, onPress, onDelete, onFavorite, isFavor
                         </TouchableOpacity>
                     </View>
                 </View>
-                <Text
-                    style={styles.text}
-                    numberOfLines={3}  // Limit text to 3 lines
-                    ellipsizeMode="tail"
-                >
-                    {text}
-                </Text>
+                <View style={styles.richEditorContainer}>
+                                   <RichEditor
+                                       initialContentHTML={getScaledContent()}
+                                       disabled={true}  // Disable interaction
+                                       scrollEnabled={false}  // Prevent scrolling
+                                       containerStyle={styles.richEditor}
+                                   />
+                </View>
+
             </View>
         </TouchableOpacity>
     );
@@ -75,11 +83,14 @@ const styles = StyleSheet.create({
         color: '#1F2544',
         flex: 1,
     },
-    text: {
-        fontSize: 14,
-        color: '#333',
-        marginTop: 5,
-    },
+     richEditorContainer: {
+            maxHeight: 60,  // Set a max height for 3 lines (adjust based on your line height)
+            overflow: 'hidden', // Hide overflow
+        },
+        richEditor: {
+            minHeight: 60,  // Minimum height
+            maxHeight: 60,  // Match max height to container
+        },
     actionButtons: {
         flexDirection: 'row',
         alignItems: 'center',

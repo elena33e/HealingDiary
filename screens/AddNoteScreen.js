@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef} from "react";
 import {
     View, Text, StyleSheet, TouchableOpacity, ToastAndroid,
     TextInput, KeyboardAvoidingView, Platform, ScrollView,
@@ -8,6 +8,9 @@ import { db } from '../firebaseConfig';
 import { addDoc, collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { Formik } from 'formik';
+import { RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
+import { actions } from 'react-native-pell-rich-editor/src/const';
+import ColorPicker from 'react-native-wheel-color-picker';
 import MyButton from "../components/MyButton";
 
 const AddNoteScreen = ({ route, navigation }) => {
@@ -17,7 +20,52 @@ const AddNoteScreen = ({ route, navigation }) => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [formSubmitted, setFormSubmitted] = useState(false); // Track if form has been submitted
     const auth = getAuth();
+    const richText = useRef();
+    const [showColorPicker, setShowColorPicker] = useState(false);
 
+
+    const handleColorSelect = (color) => {
+        richText.current?.setForeColor(color);
+        setShowColorPicker(false);
+      };
+
+    const customActions = [
+        actions.setBold,
+        actions.setItalic,
+        actions.setUnderline,
+        actions.setStrikethrough,
+        actions.heading1,
+        actions.heading2,
+        actions.heading3,
+        actions.heading4,
+        actions.alignLeft,
+        actions.alignCenter,
+        actions.alignRight,
+        actions.alignFull,
+        actions.insertBulletsList,
+        actions.insertOrderedList,
+        actions.indent,
+        actions.outdent,
+        actions.insertLink,
+        {
+          iconName: 'format-color-text',
+          title: 'Color',
+          onPress: () => setShowColorPicker(true),
+        },
+        {
+          iconName: 'format-size',
+          title: 'Font Size',
+          onPress: () => {
+            // You can implement a custom font size picker here
+            const fontSize = prompt('Enter font size (px):');
+            if (fontSize) {
+              richText.current?.setFontSize(parseInt(fontSize));
+            }
+          },
+        },
+      ];
+
+    //Fetching categy list
     useEffect(() => {
         getCategories();
     }, []);
@@ -85,6 +133,8 @@ const AddNoteScreen = ({ route, navigation }) => {
             if (user) {
                 const noteData = {
                     ...values,
+                    category: values.category,
+                    text: values.formattedText, // Use formattedText as the value for the text field
                     user_id: user.uid,
                 };
                 const docRef = await addDoc(collection(db, 'Notes'), noteData);
@@ -122,7 +172,7 @@ const AddNoteScreen = ({ route, navigation }) => {
         >
             <ScrollView contentContainerStyle={styles.scrollContainer}>
                 <Formik
-                    initialValues={{ title: '', category: categoryValue || '', text: '' }}
+                    initialValues={{ title: '', category: categoryValue || '', formattedText: ''}}
                     onSubmit={(values, actions) => onSubmitMethod(values, actions)}
                     validate={(values) => {
                         const errors = {};
@@ -134,13 +184,13 @@ const AddNoteScreen = ({ route, navigation }) => {
                         } else {
                             values.category = categoryValue; // Ensure categoryValue is set correctly
                         }
-                        if (!values.text) {
-                            errors.text = 'Please add some text to the note';
+                        if (!values.formattedText) {
+                            errors.formattedText = 'Please add some text to the note';
                         }
                         return errors;
                     }}
                 >
-                    {({ handleChange, handleBlur, handleSubmit, values, errors }) => (
+                    {({ handleChange, handleBlur, handleSubmit, values, errors, setFieldValue }) => (
                         <View style={{ flex: 1 }}>
                             <View style={styles.form}>
                                 <TextInput
@@ -165,16 +215,29 @@ const AddNoteScreen = ({ route, navigation }) => {
                                 {formSubmitted && errors.category && (
                                     <Text style={styles.errorText}>{errors.category}</Text>
                                 )}
-                                <TextInput
-                                    multiline
-                                    style={styles.textArea}
-                                    placeholder="Your notes here..."
-                                    value={values.text}
-                                    onChangeText={handleChange('text')}
-                                    onBlur={handleBlur('text')}
-                                />
-                                {formSubmitted && errors.text && (
-                                    <Text style={styles.errorText}>{errors.text}</Text>
+                                <RichToolbar
+                                              editor={richText}
+                                              actions={customActions}
+                                              iconMap={{ [actions.heading1]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H1</Text>),
+                                                         [actions.heading2]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H2</Text>),
+                                                         [actions.heading3]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H3</Text>),
+                                                         [actions.heading4]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H4</Text>) }}
+                                              style={styles.richToolbar}
+                                            />
+                                            <RichEditor
+                                              ref={richText}
+                                              onChange={(text) => setFieldValue('formattedText', text)}
+                                              initialContentHTML={values.formattedText}
+                                              style={styles.richEditor}
+                                            />
+                                            {showColorPicker && (
+                                              <ColorPicker
+                                                onColorChange={handleColorSelect}
+                                                style={{ flex: 1 }}
+                                              />
+                                            )}
+                                {formSubmitted && errors.formattedText && (
+                                    <Text style={styles.errorText}>{errors.formattedText}</Text>
                                 )}
                             </View>
                             <TouchableOpacity style={styles.button} onPress={handleSubmit}>
@@ -310,6 +373,10 @@ const styles = StyleSheet.create({
         color: 'red',
         marginBottom: 10,
     },
+    tib: {
+        textAlign: 'center',
+        color: '#515156',
+      },
 });
 
 export default AddNoteScreen;
