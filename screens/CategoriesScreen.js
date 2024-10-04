@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { ScrollView, View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import CategoryCard from '../components/CategoryCard';
 import { db } from '../firebaseConfig';
@@ -6,11 +6,14 @@ import { collection, getDocs, where, query } from "firebase/firestore";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getAuth } from "firebase/auth";  // Import Firebase Auth
+import { ThemeContext } from '../utilities/ThemeContext';
 
 const CategoriesScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
   const auth = getAuth(); // Get the auth object
+
+  const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
     getCategories();
@@ -64,10 +67,10 @@ const CategoriesScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {categories.length === 0 && (
-          <View style={styles.emptyMessageContainer}>
-            <Text style={styles.emptyMessage}>It seems like there is nothing here yet...
+          <View style={[styles.emptyMessageContainer,  { backgroundColor: theme.background }]}>
+            <Text style={[styles.emptyMessage,  { color: theme.text }]}>It seems like there is nothing here yet...
                                               Start adding categories! 
             </Text>
           </View>
@@ -81,6 +84,7 @@ const CategoriesScreen = ({ navigation }) => {
             itemKey={item.key}
             onPress={handleCategoryPress} 
             onDelete={removeCategory}
+            theme={theme}
           />
         )}
         keyExtractor={(item) => item.key}
@@ -91,10 +95,10 @@ const CategoriesScreen = ({ navigation }) => {
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, { backgroundColor: theme.buttonBackground }]}
           onPress={() => navigation.navigate('AddCategory')}
         >
-          <Icon name="add" size={24} color="white" />
+          <Icon name="add" size={24} color={theme.buttonText}/>
         </TouchableOpacity>
       </View>
     </View>

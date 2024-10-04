@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { FlatList, ActivityIndicator, StyleSheet, View, Text } from 'react-native';
 import NoteCard from '../components/NoteCard';
 import { db } from '../firebaseConfig';
@@ -6,11 +6,14 @@ import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc} from "
 import { TouchableOpacity } from "react-native-gesture-handler";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getAuth } from "firebase/auth";  // Import Firebase Auth
+import { ThemeContext } from '../utilities/ThemeContext';
 
 const FavoriteNotesScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState([]);
   const auth = getAuth();  
+
+  const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
     const user = auth.currentUser;  // Get the current logged-in user
@@ -93,10 +96,10 @@ const FavoriteNotesScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
        {notes.length === 0 && (
-          <View style={styles.emptyMessageContainer}>
-            <Text style={styles.emptyMessage}>It seems like there is nothing here yet...
+          <View style={[styles.emptyMessageContainer,  { backgroundColor: theme.background }]}>
+            <Text style={[styles.emptyMessage,  { color: theme.text }]}>It seems like there is nothing here yet...
                                               Start adding notes! 
             </Text>
           </View>

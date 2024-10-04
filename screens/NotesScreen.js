@@ -1,17 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { FlatList, ActivityIndicator, StyleSheet, View, Text } from 'react-native';
 import NoteCard from '../components/NoteCard';
 import { db } from '../firebaseConfig';
-import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc} from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { getAuth } from "firebase/auth";  // Import Firebase Auth
+import { ThemeContext } from '../utilities/ThemeContext';
 
 const NotesScreen = ({ navigation, category }) => {
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState([]);
-  const [favoriteNotes, setFavoriteNotes] = useState([]);
   const auth = getAuth();  // Get the auth object
+
+  const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
     const user = auth.currentUser;  // Get the current logged-in user
@@ -100,15 +102,15 @@ const NotesScreen = ({ navigation, category }) => {
   
 
   if (loading) {
-    return <ActivityIndicator />;
+    return <ActivityIndicator color={theme.text} />;
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, {backgroundColor: theme.background}]}>
        {notes.length === 0 && (
           <View style={styles.emptyMessageContainer}>
-            <Text style={styles.emptyMessage}>It seems like there is nothing here yet...
-                                              Start adding notes! 
+            <Text style={[styles.emptyMessage, { color: theme.text }]}>
+              It seems like there is nothing here yet... Start adding notes!
             </Text>
           </View>
         )}
@@ -123,17 +125,17 @@ const NotesScreen = ({ navigation, category }) => {
             onPress={handleNotePress} 
             onFavorite={() => handleFavoriteToggle(item.key, item.isFavourite)} 
             onDelete={handleDeleteNote}
+            theme={theme}  // Pass theme to the NoteCard component
           />
         )}
         keyExtractor={(item) => item.key}
         numColumns={1}  // Display 1 item per row
-        //columnWrapperStyle={styles.row} // Add some spacing between rows
-        contentContainerStyle={styles.scrollViewContent} // Use this for padding/margin
+        contentContainerStyle={styles.scrollViewContent}  // Use this for padding/margin
       />
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, { backgroundColor: theme.buttonBackground, shadowColor: theme.shadow }]}
           onPress={() => navigation.navigate('AddNoteScreen')}
         >
           <Icon name="note-add" size={24} color="white" />
@@ -146,26 +148,19 @@ const NotesScreen = ({ navigation, category }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'white'
   },
   scrollViewContent: {
     padding: 20,
-  },
-  row: {
-    justifyContent: 'space-between',
-    marginBottom: 10,
   },
   button: {
     position: 'absolute',
     right: 20,
     bottom: 20,
-    backgroundColor: '#474F7A',
     width: 56,
     height: 56,
     borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.8,
     shadowRadius: 2,
@@ -185,7 +180,6 @@ const styles = StyleSheet.create({
   },
   emptyMessage: {
     fontSize: 16,
-    color: '#999',
   },
 });
 

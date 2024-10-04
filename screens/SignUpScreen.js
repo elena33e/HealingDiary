@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import MyTextInput from '../components/MyTextInput';
 import MyButton from '../components/MyButton';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from '@firebase/auth';
 import {app} from '../firebaseConfig'
+import { ThemeContext } from '../utilities/ThemeContext';
 
 
     const SignUpScreen = ({navigation}) => {
@@ -13,6 +14,7 @@ import {app} from '../firebaseConfig'
     const [password, setPassword] = useState('');
     const [confirmPassword, setconfirmPassword] = useState('');
     const auth = getAuth(app);
+    const { theme } = useContext(ThemeContext);
 
     const signUp = () => {
         createUserWithEmailAndPassword(auth, email, password)
@@ -29,11 +31,11 @@ import {app} from '../firebaseConfig'
 
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
 
-          <Text style={styles.title}>Sign Up</Text>
+          <Text style={[styles.title, { color: theme.text }]}>Sign Up</Text>
 
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: theme.cardBackground }]}>
 
              <MyTextInput 
                value ={email} 
@@ -58,9 +60,9 @@ import {app} from '../firebaseConfig'
              <MyButton title='Sign Up' onPress={signUp} style={styles.button}/>
 
           <View style={styles.signupContainer}>
-            <Text style={styles.textDontHave}>Already have an account? </Text>
+            <Text style={[styles.textDontHave, {color: theme.textDontHave}]}>Already have an account? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginText}>Login</Text>
+              <Text style={[styles.loginText, {color: theme.textSignUp}]}>Login</Text>
             </TouchableOpacity>
           </View>
           </View>

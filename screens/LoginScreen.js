@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import MyTextInput from '../components/MyTextInput';
 import MyButton from '../components/MyButton';
-import { app, auth } from '../firebaseConfig';
-import { getAuth, signInWithEmailAndPassword } from '@firebase/auth';
+import { auth } from '../firebaseConfig';
+import {signInWithEmailAndPassword } from '@firebase/auth';
+import { ThemeContext } from '../utilities/ThemeContext';
+import { terminate } from 'firebase/firestore';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  //const auth = getAuth(app);
+  const { theme } = useContext(ThemeContext);
 
   const loginWithEmailAndPassword = () => {
     signInWithEmailAndPassword(auth, email, password)
@@ -24,15 +26,15 @@ const LoginScreen = ({ navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
-      <View style={styles.inputContainer}>
+    <View style = {[styles.container, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Login</Text>
+      <View style={[styles.inputContainer, { backgroundColor: theme.cardBackground }]}>
 
         <MyTextInput
           value={email}
           onChangeText={text => setEmail(text)}
           placeholder='Enter e-mail'
-          style={styles.input}
+          style={[styles.input, {background: theme.inputBackground}]}
         />
 
         <MyTextInput
@@ -46,9 +48,9 @@ const LoginScreen = ({ navigation }) => {
         <MyButton title='Login' onPress={loginWithEmailAndPassword} style={styles.button} />
         
         <View style={styles.signupContainer}>
-          <Text style={styles.textDontHave}>Don’t have an account yet? </Text>
+          <Text style={[styles.textDontHave, {color: theme.textDontHave}]}>Don’t have an account yet? </Text>
           <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-            <Text style={styles.signUpText}>Sign Up!</Text>
+            <Text style={[styles.signUpText, {color: theme.textSignUp}]}>Sign Up!</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -103,11 +105,8 @@ const styles = StyleSheet.create({
     marginRight: 10,
     marginBottom: 15,
   },
-  textDontHave: {
-    color: '#6A30DA',  // Match the color scheme
-  },
-  signUpText: {
-    color: '#8A65DF',  // Make the Sign Up text stand out
+  
+  signUpText: { 
     fontWeight: 'bold',
   },
   button: {

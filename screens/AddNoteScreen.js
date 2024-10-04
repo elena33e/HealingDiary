@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef} from "react";
+import React, { useEffect, useState, useRef, useContext} from "react";
 import {
     View, Text, StyleSheet, TouchableOpacity, ToastAndroid,
     TextInput, KeyboardAvoidingView, Platform, ScrollView,
@@ -12,6 +12,7 @@ import { RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
 import { actions } from 'react-native-pell-rich-editor/src/const';
 import ColorPicker from 'react-native-wheel-color-picker';
 import MyButton from "../components/MyButton";
+import { ThemeContext } from '../utilities/ThemeContext';
 
 const AddNoteScreen = ({ route, navigation }) => {
     const { category } = route.params || {};
@@ -22,7 +23,8 @@ const AddNoteScreen = ({ route, navigation }) => {
     const auth = getAuth();
     const richText = useRef();
     const [showColorPicker, setShowColorPicker] = useState(false);
-
+    
+    const { theme } = useContext(ThemeContext);
 
     const handleColorSelect = (color) => {
         richText.current?.setForeColor(color);
@@ -154,20 +156,20 @@ const AddNoteScreen = ({ route, navigation }) => {
 
     const renderCategoryItem = ({ item }) => (
         <TouchableOpacity
-            style={styles.categoryItem}
+            style={[styles.categoryItem, { backgroundColor: theme.inputBackground }]}
             onPress={() => {
                 setCategoryValue(item.name); // Set category name when selected
                 setIsModalVisible(false);
             }}
             key={item.id || item.name}
         >
-            <Text style={styles.categoryText}>{item.name}</Text>
+            <Text style={[styles.categoryText, { color: theme.text }]}>{item.name}</Text>
         </TouchableOpacity>
     );
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -192,9 +194,9 @@ const AddNoteScreen = ({ route, navigation }) => {
                 >
                     {({ handleChange, handleBlur, handleSubmit, values, errors, setFieldValue }) => (
                         <View style={{ flex: 1 }}>
-                            <View style={styles.form}>
+                            <View style={[styles.form, {backgroundColor: theme.background}]}>
                                 <TextInput
-                                    style={styles.titleInput}
+                                    style={[styles.titleInput, {color: theme.text, backgroundColor: theme.titleInputBackground, placeholder: theme.placeholder}]}
                                     placeholder="Title..."
                                     value={values.title}
                                     onChangeText={handleChange('title')}
@@ -203,12 +205,12 @@ const AddNoteScreen = ({ route, navigation }) => {
                                 {formSubmitted && errors.title && (
                                     <Text style={styles.errorText}>{errors.title}</Text>
                                 )}
-                                <Text style={styles.label}>Select Category</Text>
+                                <Text style={[styles.label, {color: theme.text}]}>Select Category</Text>
                                 <TouchableOpacity
-                                    style={styles.categoryInput}
+                                    style={[styles.categoryInput, { backgroundColor: theme.inputBackground}]}
                                     onPress={() => setIsModalVisible(true)}
                                 >
-                                    <Text style={styles.categoryText}>
+                                    <Text style={[styles.categoryText, {color: theme.buttonText}]}>
                                         {categoryValue || "Select a Category"}
                                     </Text>
                                 </TouchableOpacity>
@@ -222,14 +224,21 @@ const AddNoteScreen = ({ route, navigation }) => {
                                                          [actions.heading2]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H2</Text>),
                                                          [actions.heading3]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H3</Text>),
                                                          [actions.heading4]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H4</Text>) }}
-                                              style={styles.richToolbar}
+                                              iconTint={theme.text} 
+                                              selectedIconTint={theme.accentColor}  
+                                              style={[styles.richToolbar, { backgroundColor: theme.toolbarBackground }]}
                                             />
-                                            <RichEditor
-                                              ref={richText}
-                                              onChange={(text) => setFieldValue('formattedText', text)}
-                                              initialContentHTML={values.formattedText}
-                                              style={styles.richEditor}
-                                            />
+                                <RichEditor
+                                    ref={richText}
+                                    onChange={(text) => setFieldValue('formattedText', text)}
+                                    initialContentHTML={values.formattedText}
+                                    style={[styles.richEditor, { backgroundColor: theme.inputBackground }]}
+                                    editorStyle={{
+                                        backgroundColor: theme.background,
+                                        color: theme.text,
+                                        placeholderColor: theme.placeholder,
+                                    }}
+                                />
                                             {showColorPicker && (
                                               <ColorPicker
                                                 onColorChange={handleColorSelect}
@@ -240,32 +249,31 @@ const AddNoteScreen = ({ route, navigation }) => {
                                     <Text style={styles.errorText}>{errors.formattedText}</Text>
                                 )}
                             </View>
-                            <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                                <Text style={styles.add}>+</Text>
+                            <TouchableOpacity style={[styles.button, {backgroundColor: theme.buttonBackground}]} onPress={handleSubmit}>
+                                <Text style={[styles.add, {color: theme.buttonText}]}>+</Text>
                             </TouchableOpacity>
                         </View>
                     )}
                 </Formik>
                 <Modal
-                    animationType="slide"
-                    transparent={true}
-                    visible={isModalVisible}
-                    onRequestClose={() => setIsModalVisible(false)}
-                >
-                    <View style={styles.modalContainer}>
-                        <View style={styles.modalContent}>
-                            <FlatList
-                                data={categories}
-                                renderItem={renderCategoryItem}
-                                keyExtractor={(item) => item.id}
-                            />
-                            <MyButton
-                                title='Close'
-                                onPress={() => setIsModalVisible(false)}
-                            />
-                        </View>
-                    </View>
-                </Modal>
+    animationType="slide"
+    transparent={true}
+    visible={isModalVisible}
+    onRequestClose={() => setIsModalVisible(false)}
+>
+    <View style={styles.modalContainer}>
+        <View style={[styles.modalContent, { backgroundColor: theme.cardBackground }]}>
+            <View style={{ backgroundColor: theme.cardBackground, flex: 1 }}>
+                <FlatList
+                    data={categories}
+                    renderItem={renderCategoryItem}
+                    keyExtractor={(item) => item.id}
+                />
+            </View>
+            <MyButton title='Close' onPress={() => setIsModalVisible(false)} />
+        </View>
+    </View>
+</Modal>
             </ScrollView>
         </KeyboardAvoidingView>
     );
@@ -275,7 +283,7 @@ const AddNoteScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+       // backgroundColor: 'white',
     },
     scrollContainer: {
         flexGrow: 1,
@@ -292,14 +300,14 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         fontSize: 20,
         fontWeight: 'bold',
-        backgroundColor: '#FFF',
+        //backgroundColor: '#FFF',
         borderRadius: 8,
     },
     categoryInput: {
         width: '80%',
         height: 55,
         borderColor: '#D6BBFC',
-        backgroundColor: '#E8DFFC',
+        //backgroundColor: '#E8DFFC',
         borderRadius: 25,
         padding: 15,
         paddingHorizontal: 20,
@@ -311,7 +319,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         paddingLeft: 15,
-        color: '#333',
+        //color: '#333',
     },
     textArea: {
         height: 400,
@@ -324,7 +332,7 @@ const styles = StyleSheet.create({
     button: {
         width: 55,
         height: 55,
-        backgroundColor: "#474F7A",
+        //backgroundColor: "#474F7A",
         borderRadius: 50,
         justifyContent: 'center',
         alignItems: 'center',
@@ -362,7 +370,7 @@ const styles = StyleSheet.create({
     closeButton: {
         marginTop: 20,
         padding: 10,
-        backgroundColor: '#474F7A',
+        //backgroundColor: '#474F7A',
         borderRadius: 5,
     },
     closeButtonText: {
@@ -375,8 +383,9 @@ const styles = StyleSheet.create({
     },
     tib: {
         textAlign: 'center',
-        color: '#515156',
+        //color: '#515156',
       },
+      
 });
 
 export default AddNoteScreen;

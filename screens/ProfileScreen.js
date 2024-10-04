@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Button } from 'react-native';
-import { getAuth, onAuthStateChanged } from '@firebase/auth';
-import { app, auth } from '../firebaseConfig';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { onAuthStateChanged } from '@firebase/auth';
+import { auth } from '../firebaseConfig';
 import MyButton from '../components/MyButton';
+import { ThemeContext } from '../utilities/ThemeContext';
 
 const ProfileScreen = () => {
   const [user, setUser] = useState(null); // Use `null` instead of an empty string
-  //const auth = getAuth(app);
+  
+  const { theme } = useContext(ThemeContext);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -30,11 +32,14 @@ const ProfileScreen = () => {
   }
 
   return (
-    <View style={styles.authContainer}>
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.emailText}>Hello, user!</Text>
-      <Text style={styles.emailText}>{user.email}</Text>
-      <MyButton title="Logout" color="#e74c3c" onPress={() => auth.signOut()} />
+    <View style={[styles.authContainer, { backgroundColor: theme.background }]}>
+      <Text style={[styles.title, { color: theme.text }]}>Profile</Text>
+      <Text style={[styles.emailText, { color: theme.text }]}>Hello, user!</Text>
+      <Text style={[styles.emailText, { color: theme.text }]}>{user.email}</Text>
+      <MyButton 
+         title="Logout" 
+         color="#e74c3c" 
+         onPress={() => auth.signOut()} />
     </View>
   );
 };

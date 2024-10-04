@@ -1,5 +1,6 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from "react";
+import React, { useEffect, useContext, useState } from "react";
+import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -19,6 +20,7 @@ import { getAuth, onAuthStateChanged } from '@firebase/auth';
 import { app } from './firebaseConfig';
 import NetInfo from "@react-native-community/netinfo";
 import { ToastAndroid } from 'react-native'; 
+import { ThemeProvider, ThemeContext } from './utilities/ThemeContext'; 
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -77,27 +79,26 @@ function MainApp() {
               iconName = 'person';
               break;
           }
-          // Change icon color based on whether it's focused
           return <MaterialIcons name={iconName} color={focused ? '#E4D0FF' : '#474F7A'} size={size} />;
         },
         tabBarLabelStyle: {
-          display: 'none', // Hides the labels
+          display: 'none',
         },
         tabBarItemStyle: {
-          width: 60, // Set width to a fixed value
-          height: 50, // Set height to the same fixed value
-          borderRadius: 100, // Make borderRadius half of width/height to achieve perfect round shape
-          marginHorizontal: 25, // Space between tabs
-          backgroundColor: '#FFD0EC89', // Tab item background color
-          justifyContent: 'center', // Center icon vertically
-          alignItems: 'center', // Center icon horizontally
+          width: 60,
+          height: 50,
+          borderRadius: 100,
+          marginHorizontal: 25,
+          backgroundColor: '#FFD0EC89',
+          justifyContent: 'center',
+          alignItems: 'center',
         },
         tabBarStyle: {
-          backgroundColor: 'white', // Background color of the tab bar
-          borderTopWidth: 0, // Removes top border of tab bar
-          height: 70, // Height of the tab bar
+          backgroundColor: 'white',
+          borderTopWidth: 0,
+          height: 70,
           paddingBottom: 10,
-          paddingTop: 10 // Padding to add space at the bottom
+          paddingTop: 10,
         },
       })}
     >
@@ -109,11 +110,22 @@ function MainApp() {
   );
 }
 
+const ToggleThemeButton = () => {
+  const { toggleTheme, theme } = useContext(ThemeContext);
 
+  // Use the background color to decide the icon
+  const iconName = theme.background === '#1F1F1F' ? 'nights-stay' : 'wb-sunny';
+
+  return (
+    <View style={styles.toggleButtonContainer}>
+      <MaterialIcons name={iconName} size={24} color="white" onPress={toggleTheme} />
+    </View>
+  );
+};
 
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const auth = getAuth(app);
 
   useEffect(() => {
@@ -121,30 +133,53 @@ export default function App() {
     const unsubscribe = NetInfo.addEventListener(state => {
       console.log("Connection type", state.type);
       console.log("Is connected?", state.isConnected);
-      
+
       if (state.isConnected) {
-        ToastAndroid.show('You are online', ToastAndroid.SHORT); // Or handle online state
+        ToastAndroid.show('You are online', ToastAndroid.SHORT);
       } else {
-        ToastAndroid.show('You are offline', ToastAndroid.SHORT); // Or handle offline state
+        ToastAndroid.show('You are offline', ToastAndroid.SHORT);
       }
     });
 
-    // Cleanup the listener on unmount
     return () => unsubscribe();
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setIsAuthenticated(!!user);
     });
 
-    // Clean up the subscription on unmount
     return () => unsubscribe();
   }, [auth]);
 
   return (
-    <NavigationContainer>
-      {isAuthenticated ? <MainApp /> : <AuthStack />}
-    </NavigationContainer>
+    <ThemeProvider>
+      <ThemeContext.Consumer>
+        {({ theme }) => (
+          <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+            <NavigationContainer>
+              <ToggleThemeButton />
+              {isAuthenticated ? <MainApp /> : <AuthStack />}
+            </NavigationContainer>
+          </SafeAreaView>
+        )}
+      </ThemeContext.Consumer>
+    </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  toggleButtonContainer: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    backgroundColor: '#474F7A',
+    borderRadius: 30,
+    padding: 10,
+    elevation: 5,
+    zIndex: 10
+  },
+  container: {
+    flex: 1,
+  },
+});

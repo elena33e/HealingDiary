@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Image, ToastAndroid, Modal, FlatList } from 'react-native';
 import { db } from '../firebaseConfig';
 import { addDoc, collection, getDocs, where, query } from "firebase/firestore";
@@ -8,8 +8,9 @@ import { TextInput } from "react-native-gesture-handler";
 import MyButton from '../components/MyButton';
 import * as ImagePicker from 'expo-image-picker';
 import { getAuth } from "firebase/auth";
-import { saveToLocal, setupNetworkSyncListener } from '../utilities/DataSyncService'; // Import sync methods
-import NetInfo from '@react-native-community/netinfo'; // NetInfo to check online/offline status
+import { saveToLocal, setupNetworkSyncListener } from '../utilities/DataSyncService';
+import NetInfo from '@react-native-community/netinfo';
+import { ThemeContext } from '../utilities/ThemeContext'; // Import ThemeContext
 
 const AddCategoryScreen = ({ route, navigation }) => {
     const { parent } = route.params || {};
@@ -20,13 +21,15 @@ const AddCategoryScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(false);
     const storage = getStorage();
     const auth = getAuth();
+    
+    // Accessing the current theme from ThemeContext
+    const { theme } = useContext(ThemeContext);
 
     useEffect(() => {
         getCategories();
-        setupNetworkSyncListener(); // Start syncing when online if there is pending data
+        setupNetworkSyncListener();
     }, []);
 
-    // Fetch categories from Firestore
     const getCategories = async () => {
         const user = auth.currentUser;
         if (user) {
@@ -45,7 +48,6 @@ const AddCategoryScreen = ({ route, navigation }) => {
         }
     };
 
-    // Image picker function
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -59,7 +61,6 @@ const AddCategoryScreen = ({ route, navigation }) => {
         }
     };
 
-    // Submit form
     const onSubmitMethod = async (value) => {
         if (!image) {
             ToastAndroid.show('Please select an image', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
@@ -75,7 +76,6 @@ const AddCategoryScreen = ({ route, navigation }) => {
         setLoading(true);
 
         try {
-            // Upload image to Firebase storage
             const resp = await fetch(image);
             const blob = await resp.blob();
             const storageRef = ref(storage, 'catImages/' + Date.now() + '.jpg');
@@ -88,45 +88,40 @@ const AddCategoryScreen = ({ route, navigation }) => {
                 value.parent = "0";
             }
 
-            // Check if user is online or offline
             const netInfo = await NetInfo.fetch();
 
             if (netInfo.isConnected) {
-                // If online, save directly to Firestore
                 const docRef = await addDoc(collection(db, 'Categories'), value);
                 if (docRef.id) {
                     ToastAndroid.show('Category added successfully', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
                 }
             } else {
-                // If offline, save to local storage for later sync
                 await saveToLocal({ type: 'category', data: value });
                 ToastAndroid.show('You are offline. Data will be synced later.', ToastAndroid.SHORT, ToastAndroid.BOTTOM);
             }
         } catch (error) {
             console.error("Error adding category: ", error);
             ToastAndroid.show('Error adding category: ' + error.message, ToastAndroid.LONG, ToastAndroid.BOTTOM);
-            // Save to local storage if there's an error
             await saveToLocal({ type: 'category', data: value });
         } finally {
             setLoading(false);
         }
     };
 
-    // Render category item in modal
     const renderCategoryItem = ({ item }) => (
         <TouchableOpacity
-            style={styles.categoryItem}
+            style={[styles.categoryItem, { backgroundColor: theme.background }]}
             onPress={() => {
                 setSelectedCategory(item.name);
                 setIsModalVisible(false);
             }}
         >
-            <Text style={styles.categoryText}>{item.name}</Text>
+            <Text style={[styles.categoryText, { color: theme.text }]}>{item.name}</Text>
         </TouchableOpacity>
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.background }]}>
             <Formik
                 initialValues={{ name: '', parent: selectedCategory, image: '' }}
                 onSubmit={onSubmitMethod}
@@ -149,21 +144,28 @@ const AddCategoryScreen = ({ route, navigation }) => {
                         </TouchableOpacity>
 
                         <TextInput
-                            style={styles.input}
+                            style={[
+                                styles.input,
+                                {
+                                    backgroundColor: theme.inputBackground,
+                                    color: theme.text // Ensure text color is set explicitly
+                                }
+                            ]}
                             placeholder="Category title"
                             value={values.name}
                             onChangeText={handleChange('name')}
                             onBlur={handleBlur('name')}
+                            placeholderTextColor={theme.placeholder} // Use theme's placeholder color
                         />
                         {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
-                        <Text style={styles.label}>Choose parent category</Text>
+                        <Text style={[styles.label, { color: theme.text }]}>Choose parent category</Text>
 
                         <TouchableOpacity
-                            style={styles.input}
+                            style={[styles.input, { backgroundColor: theme.inputBackground, color: theme.text }]}
                             onPress={() => setIsModalVisible(true)}
                         >
-                            <Text>{selectedCategory}</Text>
+                            <Text style={{ color: theme.text }}>{selectedCategory}</Text>
                         </TouchableOpacity>
 
                         <MyButton
@@ -179,7 +181,7 @@ const AddCategoryScreen = ({ route, navigation }) => {
                             onRequestClose={() => setIsModalVisible(false)}
                         >
                             <View style={styles.modalContainer}>
-                                <View style={styles.modalContent}>
+                                <View style={[styles.modalContent, { backgroundColor: theme.background }]}>
                                     <FlatList
                                         data={[{ id: '0', name: 'Main Category' }, ...categories]}
                                         renderItem={renderCategoryItem}
@@ -207,24 +209,21 @@ const styles = StyleSheet.create({
         borderRadius: 5,
         flex: 1,
         justifyContent: 'center',
-        backgroundColor: "white",
     },
     input: {
         width: '100%',
-        height: 50,
-        borderColor: '#D6BBFC',
-        backgroundColor: '#E8DFFC',
+        height: 60,
         borderRadius: 25,
         padding: 15,
         paddingHorizontal: 20,
-        fontSize: 16,
+        fontSize: 20,
         marginBottom: 20,
         marginTop: 20,
     },
     label: {
         marginTop: 20,
         fontSize: 16,
-        color: 'black',
+        paddingLeft: 20
     },
     image: {
         borderRadius: 20,
@@ -244,10 +243,10 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         width: '80%',
-        backgroundColor: '#FFF',
         borderRadius: 10,
         padding: 20,
         alignItems: 'center',
+        fontSize: 18
     },
     categoryItem: {
         padding: 10,

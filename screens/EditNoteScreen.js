@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useContext } from "react";
 import {
     View, Text, StyleSheet, TouchableOpacity, TextInput, 
     Modal, KeyboardAvoidingView, Platform, ScrollView, 
@@ -12,6 +12,8 @@ import MyButton from "../components/MyButton";
 import { RichEditor, RichToolbar } from 'react-native-pell-rich-editor';
 import { actions } from 'react-native-pell-rich-editor/src/const';
 import ColorPicker from 'react-native-wheel-color-picker';
+import Icon from 'react-native-vector-icons/MaterialIcons';
+import { ThemeContext } from '../utilities/ThemeContext';
 
 const EditNoteScreen = ({ route, navigation }) => {
     const { note } = route.params; // Get the note passed from previous screen
@@ -24,20 +26,22 @@ const EditNoteScreen = ({ route, navigation }) => {
     const richText = useRef();
     const [showColorPicker, setShowColorPicker] = useState(false);
 
+    const { theme } = useContext(ThemeContext);
+
     const handleColorSelect = (color) => {
             richText.current?.setForeColor(color);
             setShowColorPicker(false);
           };
 
-        const customActions = [
-            actions.setBold,
-            actions.setItalic,
-            actions.setUnderline,
-            actions.setStrikethrough,
-            actions.heading1,
-            actions.heading2,
-            actions.heading3,
-            actions.heading4,
+          const customActions = [
+              actions.setBold,
+              actions.setItalic,
+              actions.setUnderline,
+              actions.setStrikethrough,
+              actions.heading1,
+              actions.heading2,
+              actions.heading3,
+              actions.heading4,
             actions.alignLeft,
             actions.alignCenter,
             actions.alignRight,
@@ -48,22 +52,22 @@ const EditNoteScreen = ({ route, navigation }) => {
             actions.outdent,
             actions.insertLink,
             {
-              iconName: 'format-color-text',
-              title: 'Color',
-              onPress: () => setShowColorPicker(true),
+                iconName: 'format-color-text',
+                title: 'Color',
+                onPress: () => setShowColorPicker(true),
             },
             {
-              iconName: 'format-size',
-              title: 'Font Size',
-              onPress: () => {
-                // You can implement a custom font size picker here
-                const fontSize = prompt('Enter font size (px):');
-                if (fontSize) {
-                  richText.current?.setFontSize(parseInt(fontSize));
-                }
-              },
+                iconName: 'format-size',
+                title: 'Font Size',
+                onPress: () => {
+                    const fontSize = prompt('Enter font size (px):');
+                    if (fontSize) {
+                        richText.current?.setFontSize(parseInt(fontSize));
+                    }
+                },
             },
-          ];
+        ];
+          
 
     // Fetch Categories
     const getCategories = async () => {
@@ -122,23 +126,23 @@ const EditNoteScreen = ({ route, navigation }) => {
     // Category Item
     const renderCategoryItem = ({ item }) => (
         <TouchableOpacity
-            style={styles.categoryItem}
+            style={[styles.categoryItem, { backgroundColor: theme.inputBackground }]}
             onPress={() => {
                 setCategoryValue(item.name); // Set selected category
                 setIsModalVisible(false);
             }}
         >
-            <Text style={styles.categoryText}>{item.name}</Text>
+            <Text style={[styles.categoryText, {color: theme.text}]}>{item.name}</Text>
         </TouchableOpacity>
     );
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, {backgroundColor: theme.background}]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             {loading && (
-                <View style={styles.loadingContainer}>
+                <View style={[styles.loadingContainer, {backgroundColor: theme.background}]}>
                     <ActivityIndicator size="large" color="#FFFFFF" />
                 </View>
             )}
@@ -171,13 +175,13 @@ const EditNoteScreen = ({ route, navigation }) => {
                        {({ handleChange, handleBlur, handleSubmit, values, errors, setFieldValue }) => (
                            <>
 
-                           <TouchableOpacity style={styles.fixedButton} onPress={handleSubmit}>
-                                               <Text style={styles.add}>✓</Text>
+                           <TouchableOpacity style={[styles.fixedButton, {backgroundColor: theme.buttonBackground}]} onPress={handleSubmit}>
+                                               <Text style={[styles.add, { color: theme.buttonText}]}>✓</Text>
                            </TouchableOpacity>
 
-                           <ScrollView contentContainerStyle={styles.scrollContainer}>
+                           <ScrollView contentContainerStyle={[styles.scrollContainer, {backgroundColor: theme.background}]}>
                                   <TextInput
-                                       style={styles.titleInput}
+                                       style={[styles.titleInput, {backgroundColor: theme.titleInputBackground}]}
                                        placeholder="Title..."
                                        value={values.title}
                                        onChangeText={handleChange('title')}
@@ -191,9 +195,9 @@ const EditNoteScreen = ({ route, navigation }) => {
 
 
                                {/* Rest of the form */}
-                               <Text style={styles.label}>Select Category</Text>
+                               <Text style={[styles.label, { color: theme.text}]}>Select Category</Text>
                                <TouchableOpacity
-                                   style={styles.categoryInput}
+                                   style={[styles.categoryInput, {backgroundColor: theme.inputBackground}]}
                                    onPress={() => setIsModalVisible(true)}
                                >
                                    <Text style={styles.categoryText}>
@@ -204,17 +208,30 @@ const EditNoteScreen = ({ route, navigation }) => {
                                    <Text style={styles.errorText}>{errors.category}</Text>
                                )}
 
-                               <RichToolbar
-                                   editor={richText}
-                                   actions={customActions}
-                                   style={styles.richToolbar}
-                               />
-                               <RichEditor
-                                   ref={richText}
-                                   onChange={(text) => setFieldValue('formattedText', text)}
-                                   initialContentHTML={values.formattedText}
-                                   style={styles.richEditor}
-                               />
+                            <RichToolbar
+                                editor={richText}
+                                actions={customActions}
+                                iconMap={{ [actions.heading1]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H1</Text>),
+                                                         [actions.heading2]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H2</Text>),
+                                                         [actions.heading3]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H3</Text>),
+                                                         [actions.heading4]: ({ tintColor }) => (<Text style={[styles.tib, { color: tintColor }]}>H4</Text>) }}
+                                iconTint={theme.text} 
+                                selectedIconTint={theme.accentColor}  
+                                style={[styles.richToolbar, { backgroundColor: theme.toolbarBackground }]}  
+                            />
+
+                            <RichEditor
+                                ref={richText}
+                                onChange={(text) => setFieldValue('formattedText', text)}
+                                initialContentHTML={values.formattedText}
+                                style={[styles.richEditor, { backgroundColor: theme.inputBackground }]}  
+                                editorStyle={{
+                                    backgroundColor: theme.background,  
+                                    color: theme.text,  
+                                    placeholderColor: theme.placeholder,  
+                                }}
+                            />
+
                                {formSubmitted && errors.formattedText && (
                                    <Text style={styles.errorText}>{errors.formattedText}</Text>
                                )}
@@ -254,7 +271,7 @@ const EditNoteScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        
     },
     scrollContainer: {
         flexGrow: 1,
@@ -271,14 +288,12 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         fontSize: 20,
         fontWeight: 'bold',
-        backgroundColor: '#FFF',
         borderRadius: 8,
     },
     categoryInput: {
         width: '80%',
         height: 55,
         borderColor: '#D6BBFC',
-        backgroundColor: '#E8DFFC',
         borderRadius: 25,
         padding: 15,
         paddingHorizontal: 20,
@@ -290,7 +305,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 16,
         paddingLeft: 15,
-        color: '#333',
+        //color: '#333',
     },
     textArea: {
         height: 400,
@@ -305,14 +320,14 @@ const styles = StyleSheet.create({
             right: 20,                 // Adjust this to fine-tune the horizontal position
             width: 55,
             height: 55,
-            backgroundColor: "#474F7A",
+            //backgroundColor: "#474F7A",
             borderRadius: 50,
             justifyContent: 'center',
             alignItems: 'center',
             zIndex: 1000,              // Ensure the button stays on top
         },
     add: {
-        color: '#FFF',
+        //color: '#FFF',
         fontSize: 24,
     },
     modalContainer: {
@@ -323,7 +338,7 @@ const styles = StyleSheet.create({
     },
     modalContent: {
         width: '80%',
-        backgroundColor: '#FFF',
+        //backgroundColor: '#FFF',
         borderRadius: 10,
         padding: 20,
         alignItems: 'center',
@@ -349,7 +364,7 @@ const styles = StyleSheet.create({
         ...StyleSheet.absoluteFillObject,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent background
+        //backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent background
     },
 });
 
